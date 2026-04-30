@@ -1,5 +1,5 @@
 /**
- * VideoCombinePlus — FINAL (LOOP + TOOLTIP FIX ONLY)
+ * VideoCombinePlus — FINAL (PERSISTENCE FIX + LOOP + TOOLTIP)
  */
 
 import { app } from "../../scripts/app.js";
@@ -93,7 +93,7 @@ function createPreviewWidget(node) {
   downloadBtn.textContent = "⬇";
   downloadBtn.style.cssText = btnStyle();
 
-  // ✅ TOOLTIP FIX
+  // tooltips
   playBtn.title = "Play / Pause";
   soundBtn.title = "Volume";
   loopBtn.title = "Loop On / Off";
@@ -112,6 +112,7 @@ function createPreviewWidget(node) {
   bottomBar.append(playBtn, soundBtn, loopBtn, captureBtn, downloadBtn, seekBar, timeLabel);
   container.append(videoWrap, bottomBar);
 
+  // volume popup
   const volPopup = document.createElement("div");
   volPopup.style.cssText = `
     position:absolute;
@@ -209,11 +210,15 @@ function createPreviewWidget(node) {
   };
 
   function loadVideo(gif, autoplay = true) {
-    if (!gif) return;
+    if (!gif || !gif.filename) return;
 
     const url = buildPreviewUrl(gif);
     currentVideoURL = url;
 
+    // 🔥 SAVE
+    localStorage.setItem(getStorageKey(node), JSON.stringify(gif));
+
+    // 🔥 FORCE RELOAD
     video.pause();
     video.removeAttribute("src");
     video.load();
@@ -230,16 +235,16 @@ function createPreviewWidget(node) {
     };
   }
 
+  // 🔥 RESTORE FIX
   setTimeout(() => {
-    if (video.src) return;
-
     const saved = localStorage.getItem(getStorageKey(node));
-    if (saved) {
-      try {
-        loadVideo(JSON.parse(saved), false);
-      } catch {}
-    }
-  }, 100);
+    if (!saved) return;
+
+    try {
+      const gif = JSON.parse(saved);
+      loadVideo(gif, false);
+    } catch {}
+  }, 200);
 
   return { container, loadVideo, video };
 }
