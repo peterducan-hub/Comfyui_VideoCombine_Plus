@@ -1,5 +1,5 @@
 /**
- * VideoCombinePlus — FINAL (NO CONFLICT / NO FLICKER / CLEAN RESTORE)
+ * VideoCombinePlus — FINAL (VOLUME ICON FIX)
  */
 
 import { app } from "../../scripts/app.js";
@@ -112,7 +112,7 @@ function createPreviewWidget(node) {
   playBtn.style.cssText = btnStyle();
 
   const soundBtn = document.createElement("button");
-  soundBtn.textContent = "🔉";
+  soundBtn.textContent = "🔊";
   soundBtn.style.cssText = "background:none;border:none;font-size:16px;cursor:pointer;";
 
   const captureBtn = document.createElement("button");
@@ -166,6 +166,10 @@ function createPreviewWidget(node) {
   volPopup.appendChild(volSlider);
   videoWrap.appendChild(volPopup);
 
+  // 🔥 INITIAL SYNC
+  video.volume = volSlider.value / 100;
+  soundBtn.textContent = "🔊";
+
   playBtn.onclick = () => {
     if (!video.src) return;
     video.paused ? video.play() : video.pause();
@@ -181,8 +185,18 @@ function createPreviewWidget(node) {
 
   document.addEventListener("click", () => volPopup.style.display = "none");
 
+  // 🔥 VOLUME + ICON FIX
   volSlider.oninput = () => {
-    video.volume = volSlider.value / 100;
+    const v = volSlider.value / 100;
+    video.volume = v;
+
+    if (v === 0) {
+      soundBtn.textContent = "🔇";
+    } else if (v < 0.5) {
+      soundBtn.textContent = "🔉";
+    } else {
+      soundBtn.textContent = "🔊";
+    }
   };
 
   function fmt(s) {
@@ -239,7 +253,6 @@ function createPreviewWidget(node) {
     };
   }
 
-  // restore (only if empty)
   setTimeout(() => {
     if (video.src) return;
 
@@ -275,7 +288,6 @@ app.registerExtension({
       }
     };
 
-    // ✅ ONLY restore if video not already loaded
     nodeType.prototype.onDrawBackground = function () {
       if (!this._lastVideo || !this._loadVideo || !this._videoEl) return;
 
