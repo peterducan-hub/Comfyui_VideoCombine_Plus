@@ -226,13 +226,6 @@ class VideoCombinePlus:
                 "frame_rate": ("FLOAT", {
                     "default": 24.0, "min": 1.0, "max": 120.0, "step": 0.1
                 }),
-                "loop_count": ("INT", {
-                    "default": 0, "min": 0, "max": 100, "step": 1
-                }),
-                "filename_prefix": ("STRING", {"default": "VideoCombinePlus"}),
-                "format": (["mp4", "webm", "mkv", "gif", "avi", "mov"],),
-                "pingpong": ("BOOLEAN", {"default": False}),
-                "save_output": ("BOOLEAN", {"default": True}),
                 "volume": ("FLOAT", {
                     "default": 1.0, "min": 0.0, "max": 2.0,
                     "step": 0.01, "display": "slider"
@@ -260,11 +253,6 @@ class VideoCombinePlus:
         self,
         images,
         frame_rate,
-        loop_count,
-        filename_prefix,
-        format,
-        pingpong,
-        save_output,
         volume,
         audio=None,
         meta_batch=None,
@@ -273,11 +261,13 @@ class VideoCombinePlus:
         extra_pnginfo=None,
         unique_id=None,
     ):
-        output_dir = (
-            folder_paths.get_output_directory()
-            if save_output
-            else folder_paths.get_temp_directory()
-        )
+        # Hardcoded defaults for removed options
+        filename_prefix = "VideoCombinePlus"
+        format = "mp4"
+        pingpong = False
+        save_output = True
+
+        output_dir = folder_paths.get_output_directory()
 
         (full_folder, filename, counter, subfolder, _) = \
             folder_paths.get_save_image_path(filename_prefix, output_dir)
