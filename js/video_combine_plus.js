@@ -1,5 +1,5 @@
 /**
- * VideoCombinePlus — FINAL (PAUSE ON RESTORE FIX + TOOLTIP FINAL POSITION)
+ * VideoCombinePlus — FINAL (NO CONFLICT / NO FLICKER / CLEAN RESTORE)
  */
 
 import { app } from "../../scripts/app.js";
@@ -10,8 +10,7 @@ function buildPreviewUrl(gif) {
   const params = new URLSearchParams({
     filename,
     subfolder: subfolder || "",
-    type: type || "output",
-    rand: Math.random(),
+    type: type || "output"
   });
   return `${api.api_base}/view?${params.toString()}`;
 }
@@ -59,11 +58,9 @@ function createPreviewWidget(node) {
       const rect = el.getBoundingClientRect();
       const parentRect = container.getBoundingClientRect();
 
-      // ✅ FINAL FIX: always ABOVE the button (no overlap)
       tooltip.style.left = (rect.left - parentRect.left - 6) + "px";
-      tooltip.style.top = (rect.top - parentRect.top - 15) + "px";
+      tooltip.style.top = (rect.top - parentRect.top - rect.height - 10) + "px";
 
-      tooltip.style.transform = "none";
       tooltip.style.opacity = "1";
     });
 
@@ -73,29 +70,16 @@ function createPreviewWidget(node) {
   }
 
   const videoWrap = document.createElement("div");
-  videoWrap.style.cssText = `
-    flex:1;
-    background:#000;
-    position:relative;
-  `;
+  videoWrap.style.cssText = `flex:1;background:#000;position:relative;`;
 
   const video = document.createElement("video");
   video.playsInline = true;
   video.crossOrigin = "anonymous";
-  video.style.cssText = `
-    width:100%;
-    height:100%;
-    object-fit:contain;
-    display:none;
-  `;
+  video.style.cssText = `width:100%;height:100%;object-fit:contain;display:none;`;
 
   const placeholder = document.createElement("div");
   placeholder.textContent = "🎬 Video preview will appear here";
-  placeholder.style.cssText = `
-    color:#3a4a6a;
-    text-align:center;
-    padding:28px;
-  `;
+  placeholder.style.cssText = `color:#3a4a6a;text-align:center;padding:28px;`;
 
   videoWrap.append(placeholder, video);
 
@@ -143,30 +127,19 @@ function createPreviewWidget(node) {
   seekBar.type = "range";
   seekBar.min = "0";
   seekBar.max = "1000";
-  seekBar.style.cssText = `
-    flex:1;
-    min-width:0;
-    accent-color:#2080e0;
-  `;
+  seekBar.style.cssText = `flex:1;min-width:0;accent-color:#2080e0;`;
 
   const timeLabel = document.createElement("span");
-  timeLabel.style.cssText = `
-    font-size:10px;
-    color:#2a6aaa;
-    min-width:50px;
-    text-align:right;
-  `;
+  timeLabel.style.cssText = `font-size:10px;color:#2a6aaa;min-width:50px;text-align:right;`;
 
   bottomBar.append(playBtn, soundBtn, captureBtn, downloadBtn, seekBar, timeLabel);
   container.append(videoWrap, bottomBar);
 
-  // Tooltips
   attachTooltip(playBtn, "Play / Pause");
   attachTooltip(soundBtn, "Volume");
   attachTooltip(captureBtn, "Save frame");
   attachTooltip(downloadBtn, "Download video");
 
-  // Volume popup
   const volPopup = document.createElement("div");
   volPopup.style.cssText = `
     position:absolute;
@@ -251,18 +224,10 @@ function createPreviewWidget(node) {
   };
 
   function loadVideo(gif, autoplay = true) {
-    if (!gif) return;
-
     const url = buildPreviewUrl(gif);
-
-    if (video.src === url) return;
 
     currentVideoURL = url;
     localStorage.setItem(getStorageKey(node), JSON.stringify(gif));
-
-    video.pause();
-    video.removeAttribute("src");
-    video.load();
 
     video.src = url;
 
@@ -270,16 +235,14 @@ function createPreviewWidget(node) {
     video.style.display = "block";
 
     video.onloadedmetadata = () => {
-      if (autoplay) {
-        video.play().catch(()=>{});
-      } else {
-        video.pause();
-        video.currentTime = 0;
-      }
+      autoplay ? video.play().catch(()=>{}) : video.pause();
     };
   }
 
+  // restore (only if empty)
   setTimeout(() => {
+    if (video.src) return;
+
     const saved = localStorage.getItem(getStorageKey(node));
     if (saved) {
       try {
@@ -288,7 +251,7 @@ function createPreviewWidget(node) {
     }
   }, 100);
 
-  return { container, loadVideo };
+  return { container, loadVideo, video };
 }
 
 app.registerExtension({
@@ -298,9 +261,10 @@ app.registerExtension({
     if (nodeData.name !== "VideoCombinePlus") return;
 
     nodeType.prototype.onNodeCreated = function () {
-      const { container, loadVideo } = createPreviewWidget(this);
+      const { container, loadVideo, video } = createPreviewWidget(this);
       this.addDOMWidget("video_preview", "PREVIEW", container);
       this._loadVideo = loadVideo;
+      this._videoEl = video;
     };
 
     nodeType.prototype.onExecuted = function (msg) {
@@ -311,8 +275,11 @@ app.registerExtension({
       }
     };
 
+    // ✅ ONLY restore if video not already loaded
     nodeType.prototype.onDrawBackground = function () {
-      if (this._lastVideo && this._loadVideo) {
+      if (!this._lastVideo || !this._loadVideo || !this._videoEl) return;
+
+      if (!this._videoEl.src) {
         this._loadVideo(this._lastVideo, false);
       }
     };
