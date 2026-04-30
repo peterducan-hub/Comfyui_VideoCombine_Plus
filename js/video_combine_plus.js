@@ -61,7 +61,7 @@ function createPreviewWidget(node) {
 
       // ✅ FINAL FIX: always ABOVE the button (no overlap)
       tooltip.style.left = (rect.left - parentRect.left - 6) + "px";
-      tooltip.style.top = (rect.top - parentRect.top - rect.height - 10) + "px";
+      tooltip.style.top = (rect.top - parentRect.top - 15) + "px";
 
       tooltip.style.transform = "none";
       tooltip.style.opacity = "1";
