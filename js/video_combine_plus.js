@@ -1,5 +1,5 @@
 /**
- * VideoCombinePlus — ComfyUI Frontend Extension (FINAL + DOWNLOAD + BLUE)
+ * VideoCombinePlus — FINAL (PAUSE ON RESTORE FIX + TOOLTIP FINAL POSITION)
  */
 
 import { app } from "../../scripts/app.js";
@@ -16,6 +16,10 @@ function buildPreviewUrl(gif) {
   return `${api.api_base}/view?${params.toString()}`;
 }
 
+function getStorageKey(node) {
+  return "VCP_lastVideo_" + node.id;
+}
+
 function createPreviewWidget(node) {
 
   let currentVideoURL = null;
@@ -28,9 +32,46 @@ function createPreviewWidget(node) {
     background:#0a0e18;
     border-radius:6px;
     overflow:hidden;
+    position:relative;
   `;
 
-  // ── Video ─────────────────────────────────────────────
+  // Tooltip
+  const tooltip = document.createElement("div");
+  tooltip.style.cssText = `
+    position:absolute;
+    background:#0e2a4a;
+    color:#60a8ff;
+    font-size:11px;
+    padding:4px 6px;
+    border-radius:4px;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity 0.15s;
+    z-index:999;
+    white-space:nowrap;
+  `;
+  container.appendChild(tooltip);
+
+  function attachTooltip(el, text) {
+    el.addEventListener("mouseenter", () => {
+      tooltip.textContent = text;
+
+      const rect = el.getBoundingClientRect();
+      const parentRect = container.getBoundingClientRect();
+
+      // ✅ FINAL FIX: always ABOVE the button (no overlap)
+      tooltip.style.left = (rect.left - parentRect.left - 6) + "px";
+      tooltip.style.top = (rect.top - parentRect.top - rect.height - 10) + "px";
+
+      tooltip.style.transform = "none";
+      tooltip.style.opacity = "1";
+    });
+
+    el.addEventListener("mouseleave", () => {
+      tooltip.style.opacity = "0";
+    });
+  }
+
   const videoWrap = document.createElement("div");
   videoWrap.style.cssText = `
     flex:1;
@@ -39,8 +80,6 @@ function createPreviewWidget(node) {
   `;
 
   const video = document.createElement("video");
-  video.autoplay = true;
-  video.loop = true;
   video.playsInline = true;
   video.crossOrigin = "anonymous";
   video.style.cssText = `
@@ -60,7 +99,6 @@ function createPreviewWidget(node) {
 
   videoWrap.append(placeholder, video);
 
-  // ── Bottom bar ─────────────────────────────────────────
   const bottomBar = document.createElement("div");
   bottomBar.style.cssText = `
     display:flex;
@@ -68,7 +106,6 @@ function createPreviewWidget(node) {
     gap:6px;
     background:#0e1a2e;
     padding:6px 8px;
-    margin-top:auto;
   `;
 
   function btnStyle() {
@@ -83,7 +120,6 @@ function createPreviewWidget(node) {
       align-items:center;
       justify-content:center;
       cursor:pointer;
-      flex-shrink:0;
     `;
   }
 
@@ -93,26 +129,16 @@ function createPreviewWidget(node) {
 
   const soundBtn = document.createElement("button");
   soundBtn.textContent = "🔉";
-  soundBtn.style.cssText = `
-    background:none;
-    border:none;
-    font-size:16px;
-    cursor:pointer;
-    flex-shrink:0;
-  `;
+  soundBtn.style.cssText = "background:none;border:none;font-size:16px;cursor:pointer;";
 
   const captureBtn = document.createElement("button");
   captureBtn.textContent = "📸";
-  captureBtn.title = "Save frame";
   captureBtn.style.cssText = btnStyle();
 
-  // ⬇ Download button
   const downloadBtn = document.createElement("button");
   downloadBtn.textContent = "⬇";
-  downloadBtn.title = "Download video";
   downloadBtn.style.cssText = btnStyle();
 
-  // 🔵 Seekbar
   const seekBar = document.createElement("input");
   seekBar.type = "range";
   seekBar.min = "0";
@@ -120,24 +146,27 @@ function createPreviewWidget(node) {
   seekBar.style.cssText = `
     flex:1;
     min-width:0;
-    cursor:pointer;
     accent-color:#2080e0;
   `;
 
   const timeLabel = document.createElement("span");
-  timeLabel.textContent = "0:00";
   timeLabel.style.cssText = `
     font-size:10px;
     color:#2a6aaa;
     min-width:50px;
     text-align:right;
-    flex-shrink:0;
   `;
 
   bottomBar.append(playBtn, soundBtn, captureBtn, downloadBtn, seekBar, timeLabel);
   container.append(videoWrap, bottomBar);
 
-  // ── Volume popup ───────────────────────────────────────
+  // Tooltips
+  attachTooltip(playBtn, "Play / Pause");
+  attachTooltip(soundBtn, "Volume");
+  attachTooltip(captureBtn, "Save frame");
+  attachTooltip(downloadBtn, "Download video");
+
+  // Volume popup
   const volPopup = document.createElement("div");
   volPopup.style.cssText = `
     position:absolute;
@@ -145,9 +174,8 @@ function createPreviewWidget(node) {
     left:40px;
     display:none;
     background:#0e1a2e;
-    border:1px solid #1a3a6a;
-    border-radius:6px;
     padding:6px;
+    border-radius:6px;
   `;
 
   const volSlider = document.createElement("input");
@@ -165,37 +193,23 @@ function createPreviewWidget(node) {
   volPopup.appendChild(volSlider);
   videoWrap.appendChild(volPopup);
 
-  // ── Logic ──────────────────────────────────────────────
-  function updatePlayIcon() {
-    playBtn.textContent = video.paused ? "▶" : "⏸";
-  }
-
-  video.addEventListener("play", updatePlayIcon);
-  video.addEventListener("pause", updatePlayIcon);
-
-  playBtn.onclick = () => video.paused ? video.play() : video.pause();
-
-  let volOpen = false;
-  soundBtn.onclick = (e) => {
-    e.stopPropagation();
-    volOpen = !volOpen;
-    volPopup.style.display = volOpen ? "flex" : "none";
+  playBtn.onclick = () => {
+    if (!video.src) return;
+    video.paused ? video.play() : video.pause();
   };
 
-  document.addEventListener("click", () => {
-    volPopup.style.display = "none";
-    volOpen = false;
-  });
+  video.addEventListener("play", () => playBtn.textContent = "⏸");
+  video.addEventListener("pause", () => playBtn.textContent = "▶");
+
+  soundBtn.onclick = (e) => {
+    e.stopPropagation();
+    volPopup.style.display = volPopup.style.display === "flex" ? "none" : "flex";
+  };
+
+  document.addEventListener("click", () => volPopup.style.display = "none");
 
   volSlider.oninput = () => {
-    const v = volSlider.value;
-    video.volume = v / 100;
-    video.muted = v == 0;
-
-    if (v == 0) soundBtn.textContent = "🔇";
-    else if (v < 40) soundBtn.textContent = "🔈";
-    else if (v < 80) soundBtn.textContent = "🔉";
-    else soundBtn.textContent = "🔊";
+    video.volume = volSlider.value / 100;
   };
 
   function fmt(s) {
@@ -212,7 +226,6 @@ function createPreviewWidget(node) {
     video.currentTime = (seekBar.value / 1000) * video.duration;
   };
 
-  // 📸 Capture
   captureBtn.onclick = () => {
     if (!video.videoWidth) return;
 
@@ -221,40 +234,59 @@ function createPreviewWidget(node) {
     canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
 
-    const name = `frame_${video.currentTime.toFixed(2)}.png`;
-
     canvas.toBlob(blob => {
-      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
+      a.href = URL.createObjectURL(blob);
+      a.download = "frame.png";
       a.click();
-      URL.revokeObjectURL(url);
     });
   };
 
-  // ⬇ Download video
   downloadBtn.onclick = () => {
     if (!currentVideoURL) return;
-
     const a = document.createElement("a");
     a.href = currentVideoURL;
-    a.download = "video_output.mp4";
-    document.body.appendChild(a);
+    a.download = "video.mp4";
     a.click();
-    a.remove();
   };
 
-  function loadVideo(gif) {
+  function loadVideo(gif, autoplay = true) {
+    if (!gif) return;
+
     const url = buildPreviewUrl(gif);
 
+    if (video.src === url) return;
+
     currentVideoURL = url;
+    localStorage.setItem(getStorageKey(node), JSON.stringify(gif));
+
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+
+    video.src = url;
 
     placeholder.style.display = "none";
     video.style.display = "block";
-    video.src = url;
-    video.play();
+
+    video.onloadedmetadata = () => {
+      if (autoplay) {
+        video.play().catch(()=>{});
+      } else {
+        video.pause();
+        video.currentTime = 0;
+      }
+    };
   }
+
+  setTimeout(() => {
+    const saved = localStorage.getItem(getStorageKey(node));
+    if (saved) {
+      try {
+        loadVideo(JSON.parse(saved), false);
+      } catch {}
+    }
+  }, 100);
 
   return { container, loadVideo };
 }
@@ -273,7 +305,15 @@ app.registerExtension({
 
     nodeType.prototype.onExecuted = function (msg) {
       if (msg?.gifs?.length) {
-        this._loadVideo(msg.gifs[msg.gifs.length - 1]);
+        const gif = msg.gifs[msg.gifs.length - 1];
+        this._lastVideo = gif;
+        this._loadVideo(gif, true);
+      }
+    };
+
+    nodeType.prototype.onDrawBackground = function () {
+      if (this._lastVideo && this._loadVideo) {
+        this._loadVideo(this._lastVideo, false);
       }
     };
   },
