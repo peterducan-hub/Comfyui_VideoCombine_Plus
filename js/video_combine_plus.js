@@ -1,5 +1,5 @@
 /**
- * VideoCombinePlus — FINAL (PERSISTENCE FIX + LOOP + TOOLTIP)
+ * VideoCombinePlus — FINAL (ALL FEATURES + DOWNLOAD FIX)
  */
 
 import { app } from "../../scripts/app.js";
@@ -95,7 +95,7 @@ function createPreviewWidget(node) {
 
   // tooltips
   playBtn.title = "Play / Pause";
-  soundBtn.title = "Volume";
+  soundBtn.title = "Volume (double-click to mute)";
   loopBtn.title = "Loop On / Off";
   captureBtn.title = "Save frame as PNG";
   downloadBtn.title = "Download video";
@@ -171,6 +171,26 @@ function createPreviewWidget(node) {
     else soundBtn.textContent = "🔊";
   };
 
+  // double click mute
+  soundBtn.ondblclick = (e) => {
+    e.stopPropagation();
+
+    if (video.volume > 0) {
+      video._lastVolume = video.volume;
+      video.volume = 0;
+      volSlider.value = 0;
+      soundBtn.textContent = "🔇";
+    } else {
+      const restore = video._lastVolume || 0.8;
+      video.volume = restore;
+      volSlider.value = restore * 100;
+
+      if (restore === 0) soundBtn.textContent = "🔇";
+      else if (restore < 0.5) soundBtn.textContent = "🔉";
+      else soundBtn.textContent = "🔊";
+    }
+  };
+
   function fmt(s) {
     return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
   }
@@ -201,12 +221,48 @@ function createPreviewWidget(node) {
     });
   };
 
-  downloadBtn.onclick = () => {
-    if (!currentVideoURL) return;
-    const a = document.createElement("a");
-    a.href = currentVideoURL;
-    a.download = "video.mp4";
-    a.click();
+  // 🔥 FIXED DOWNLOAD
+  downloadBtn.onclick = async () => {
+    const video = node._lastVideo;
+    if (!video) {
+      alert("No video available");
+      return;
+    }
+  
+    // ask filename
+    const name = prompt("File name", video.filename);
+    if (!name) return;
+  
+    try {
+      const params = new URLSearchParams({
+        filename: video.filename,
+        subfolder: video.subfolder || "",
+        type: video.type || "output"
+      });
+  
+      const url = `${api.api_base}/view?${params.toString()}`;
+  
+      // 🔥 fetch + force download
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Fetch failed");
+  
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+  
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = name;
+  
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+  
+      URL.revokeObjectURL(blobUrl);
+  
+    } catch (err) {
+      console.error(err);
+      alert("Download failed — check console");
+    }
   };
 
   function loadVideo(gif, autoplay = true) {
@@ -215,10 +271,8 @@ function createPreviewWidget(node) {
     const url = buildPreviewUrl(gif);
     currentVideoURL = url;
 
-    // 🔥 SAVE
     localStorage.setItem(getStorageKey(node), JSON.stringify(gif));
 
-    // 🔥 FORCE RELOAD
     video.pause();
     video.removeAttribute("src");
     video.load();
@@ -235,14 +289,18 @@ function createPreviewWidget(node) {
     };
   }
 
-  // 🔥 RESTORE FIX
   setTimeout(() => {
     const saved = localStorage.getItem(getStorageKey(node));
     if (!saved) return;
-
+  
     try {
       const gif = JSON.parse(saved);
+  
+      // 🔥 IMPORTANT FIX
+      node._lastVideo = gif;
+  
       loadVideo(gif, false);
+  
     } catch {}
   }, 200);
 
