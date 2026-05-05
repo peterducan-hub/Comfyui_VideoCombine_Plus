@@ -13,6 +13,6 @@ Documentation is mostly in the node descriptions and tooltips.
 1. Clone this repo into `custom_nodes` folder.
 2. Restart ComfyUI
 
-<img src="preview/videocombineplus.jpeg"/> 
+<img src="preview/videocombineplus1.jpeg"/> 
 
 <img src="preview/combinevideo_plus.gif"/> 
