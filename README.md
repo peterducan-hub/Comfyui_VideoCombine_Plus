@@ -4,7 +4,7 @@ Node Similar to the original videocombine but where I add some adittional featur
 
 - Control the sound volume,
 - Video timeline,
-- Save current frame to image
+- Save current frame to image,
 
 
 Documentation is mostly in the node descriptions and tooltips.
